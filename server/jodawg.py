@@ -9,7 +9,7 @@ class MainHandler(tornado.web.RequestHandler):
 def main():
     tornado.options.parse_command_line()
     application = tornado.web.Application([(r"/", MainHandler)])
-    application.listen(tornado.options.options.port)
+    application.listen(80)
     tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":
