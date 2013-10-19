@@ -5,6 +5,18 @@
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.client import ServerProxy
 import uuid
+import seccure # py-seccure
+
+#
+# seccure:
+#
+# pubkey = str(seccure.passphrase_to_pubkey(b'private_key')) # priv -> pub
+# ciphertext = ssecure.encrypt(msg, pubkey) # encrypt
+# ssecure.decrypt(ciphertext, b'private_key') # decrypt
+# signature = ssecure.sign(msg, b'private_key') # sign
+# ssecure.verify(msg, signature, pubkey) # verify
+#
+
 
 server = SimpleXMLRPCServer(("localhost", 8000))
 server.register_function(deliver_message, "deliver_message")
