@@ -1,31 +1,162 @@
 #!/usr/bin/env python3
 #
+# Jodawg Peer-to-Peer Communicator
+#
+# Copyright (C) 2013 Almer S. Tigelaar & Windel Bouwman
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Dependencies:
+# - python3 (obviously :D)
+# - seccure (https://github.com/bwesterb/py-seccure)
+# - zmq (http://zeromq.org/)
 #
 
-from xmlrpc.server import SimpleXMLRPCServer
-from xmlrpc.client import ServerProxy
+#from xmlrpc.server import SimpleXMLRPCServer
+#from xmlrpc.client import ServerProxy
 import uuid
+import logging
+import configparser
+import getpass
+
 import seccure # py-seccure
+import zmq
 
+logging.basicConfig(level=logging.DEBUG)
+
+# NOTE - AT:
+# Ported from my own code, this object is intended to hold onto configuration settings
+# specific for this peer/user. Should work just fine, but ideally i'd like to decouple the
+# two things (i.e. having a separate destination for peer and user specific things, so the
+# user's settings can be synchronized across peers ...). Future work :)
 #
-# seccure:
+class Configuration(object):
+    """Holds global configuration settings"""
+
+    __slots__ = [ "CONFIG_FILE", "KEY_FILE", "config", "logger" ]
+
+    def __init__(self):
+        self.logger = logging.getLogger("jodawg.config")
+        self.CONFIG_FILE="/home/almer/.jodawg.cfg" # FIXME: This should not be hard-coded, will change this to homedir later.
+        self.KEY_FILE="/home/almer/.jodawg.key" # FIXME: This should not be hard-coded, will change this to homedir later.
+
+        self.config = configparser.ConfigParser()
+        if os.path.isfile(self.CONFIG_FILE):
+            self.logger.debug("Using existing configuration file " + self.CONFIG_FILE)
+            self.config.read(self.CONFIG_FILE)
+        else:
+            self.logger.debug("Creating new configuration file " + self.CONFIG_FILE)
+            # Initialize configuration groups
+            self.config["identity"] = {}
+
+    def _flush(self):
+        self.logger.debug("Flushing configuration file to disk")
+        self.config.write(open(self.CONFIG_FILE, "w"))
+
+    def get_user_name(self):
+        return getpass.getuser() # NOTE: could be made more configurable (e.g. firstname.lastname would be better)
+
+    def get_user_fullname(self):
+        return getpass.getuser() # Should be the whole name including spacing
+
+    def get_user_identifier(self):
+        value = self.config.get("identity", "identifier", fallback=None)
+        if value is None:
+            value = str(random.randint(1000, 9999)) + "-" + str(random.randint(100, 999)) + "-" + str(random.randint(10, 99))
+            self.set_user_identifier(value)
+            self.logger.info("No user identifier stored, generated new identifier: " + value)
+        return value
+    
+    def get_user_secret_key_file(self):
+        # TODO: Make sure the keyfile rights are "600"
+        if os.path.isfile(self.KEY_FILE):
+            return self.KEY_FILE
+        else:
+            # Although the private key could be (a lot) shorter, I am sticking to a
+            # private key with the byte length the same as the bit length of the curve for now.
+            # This won't be easy to guess ...
+            value = ''.join(random.choice(string.digits + string.ascii_letters + string.punctuation) for x in range(521)) + "\n"
+            self.logger.info("No secret key stored. Generated a new key as " + self.KEY_FILE)
+            f = open(self.KEY_FILE, "w")
+            f.write(value)
+            f.close()
+
+    def set_user_identifier(self, identifier):
+        self.config["identity"]["identifier"] = identifier
+        self._flush()
+
+# TODO - AT:
+# I ported this straight from my own code base and adapted it for pyseccure. Hence, it may
+# feel a bit ... shoddy at present. No worries, I'll improve it as we go along. First thing
+# to note is that the secret key is read from a file, which is okay, but we should consider
+# reading it once and caching it (it's not going to change mid-session). Perhaps here or in
+# Configuration. Will get back to that later.
 #
-# pubkey = str(seccure.passphrase_to_pubkey(b'private_key')) # priv -> pub
-# ciphertext = ssecure.encrypt(msg, pubkey) # encrypt
-# ssecure.decrypt(ciphertext, b'private_key') # decrypt
-# signature = ssecure.sign(msg, b'private_key') # sign
-# ssecure.verify(msg, signature, pubkey) # verify
-#
+class Encryption(object):
+    """Provides secure elliptic curve encryption.
+       This is a convenience wrapper around py-seccure, which plays nice with our internal infra-structure.
+    """
 
+    __slots__ = [ "configuration", "logger", "curve", "mac", "public_key" ]
 
-server = SimpleXMLRPCServer(("localhost", 8000))
-server.register_function(deliver_message, "deliver_message")
-server.serve_forever()
+    def __init__(self, _configuration):
+        self.configuration = _configuration
+        self.logger = logging.getLogger("jodawg.encryption")
 
-#server.register_instance(Object())
+        self.curve = "secp521r1/nistp521"
+        self.mac = 256
+                
+        self.public_key = self._generate_public_key()
 
-proxy = ServerProxy("http://localhost:8000/")
-proxy.deliver_message()
+    def _generate_public_key(self):
+        secret_key_file = self.configuration.get_user_secret_key_file()
+        secret_key = open(secret_key_file(), "rb").read()
+
+        public_key = str(seccure.passphrase_to_pubkey(secret_key)) # priv -> pub
+        self.logger.info("Public key derived: '" + public_key + "'")
+        return public_key
+
+    def encrypt(self, message, receiver_key):
+        assert self.public_key is not None
+
+        cipher = ssecure.encrypt(msg, receiver_key, mac_bytes=self.mac)
+        self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + receiver_key + "'")
+        return cipher
+
+    def decrypt(self, cipher):
+        secret_key_file = self.configuration.get_user_secret_key_file()
+        secret_key = open(secret_key_file(), "rb").read()
+
+        message = ssecure.decrypt(cipher, secret_key) # decrypt
+        self.logger.debug("Decrypted " + str(len(message)) + " bytes for self")
+        return message
+
+    def sign(self, message):
+        secret_key_file = self.configuration.get_user_secret_key_file()
+        secret_key = open(secret_key_file(), "rb").read()
+
+        signature = ssecure.sign(message, secret_key) # sign
+        self.logger.debug("Signed " + str(len(message)) + " bytes with private key")
+        return signature
+
+    def verify(self, message, signature, public_key=None):
+        if public_key is None:
+            public_key = self.public_key # Verify against own public key by default
+
+        authentic = ssecure.verify(message, signature, public_key)
+        self.logger.debug("Verified " + str(len(message)) + " bytes against key '" + public_key + "', authentic = " + str(authentic))
+        return authentic
 
 #
 # So, the downside of an unencrypted envelope
@@ -184,15 +315,58 @@ class MessageLog(object):
         self.message_tracking.add((message.header.identifier, message.header.revision))
         self.revision += 1
 
+class Roster(object):
+    # User contact list abstraction
+    pass
+
 class User(object):
+    __slots__ = [ "identifier", "nickname", "status" ]
 
+    # status: chat, away, dnd, xa
     def __init__(self):
-        pass
+        self.status = "chat"
+        self.identifier = 1
+        self.nickname = "default"
 
-    def __str__(self):
-        pass
+    def to_xml(self):
+        return "<"
 
 class Node(object):
+    __slots__ = [ "context", "super_peers_locations" ]
 
-    def node_deliver_message(self, message):
-        pass
+    def __init__(self):
+        self.context = zmq.Context()
+        self.super_peers_locations = [ "tcp://127.0.0.1:4363" ]
+
+    def run(self):
+        
+        # AT: So, this is how a multi-poller would work in ZMQ. We need to set-up
+        # some "maintenance" messaging on the supers which would probably work
+        # with a (stateless) PUB/SUB system. This would involve assisting in
+        # searching for other users for example. An other application of this
+        # is chat synchronization. Though, I first want to look into a proper
+        # way to "version" and synchronize MessageLogs, as that really is
+        # the basis of the application. Both PUB/SUB as well as regular
+        # sockets will be needed.
+
+        poller = zmq.Poller()
+
+        super_peers = []
+        for location in self.super_peers_locations:
+            super_peer = context.socket(zmq.SUB)
+            super_peer.connect(location)
+            super_peer.setsockopt_string(zmq.SUBSCRIBE, "SYSTEM")
+            poller.register(super_peer, zmq.POLLIN)
+            super_peers.append(super_peer)
+
+        while True:
+            socks = dict(poller.poll())
+
+            for super_peer in super_peers:
+                if super_peer in socks and socks[super_peer] == zmq.POLLIN:
+                    message = receiver.recv()
+                    # DO SOMETHING
+
+#node = Node()
+#node.run()
+
