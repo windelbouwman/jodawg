@@ -21,11 +21,15 @@
 #
 
 import os
+import stat
 import uuid
 import logging
 import configparser
 import getpass
 import random
+import base64
+
+from lib.encryption import KeyPair
 
 # NOTE - AT:
 # Ported from my own code, this object is intended to hold onto configuration settings
@@ -34,14 +38,17 @@ import random
 # user's settings can be synchronized across peers ...). Future work :)
 #
 class Configuration(object):
-    """Holds global configuration settings"""
+    """Holds global configuration settings.
+    
+       NOTE: public/private keys are stored as base64 encoded strings. This is to prevent parsing
+       problems with Python's configparser module.
+    """
 
-    __slots__ = [ "CONFIG_FILE", "KEY_FILE", "config", "logger" ]
+    __slots__ = [ "CONFIG_FILE", "config", "logger" ]
 
     def __init__(self):
         self.logger = logging.getLogger("jodawg.config")
-        self.CONFIG_FILE="/home/almer/.jodawg.cfg" # FIXME: This should not be hard-coded, will change this to homedir later.
-        self.KEY_FILE="/home/almer/.jodawg.key" # FIXME: This should not be hard-coded, will change this to homedir later.
+        self.CONFIG_FILE=os.path.join(os.path.expanduser("~"), ".jodawg.cfg")
 
         self.config = configparser.ConfigParser()
         if os.path.isfile(self.CONFIG_FILE):
@@ -50,7 +57,10 @@ class Configuration(object):
         else:
             self.logger.debug("Creating new configuration file " + self.CONFIG_FILE)
             # Initialize configuration groups
-            self.config["identity"] = {}
+            self.config["user"] = {}
+            self.config["node"] = {}
+            self._flush()
+            # os.chmod(self.CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR) # TODO: Correctly, set file permissions
 
     def _flush(self):
         self.logger.debug("Flushing configuration file to disk")
@@ -63,27 +73,34 @@ class Configuration(object):
         return getpass.getuser() # Should be the whole name including spacing
 
     def get_user_identifier(self):
-        value = self.config.get("identity", "identifier", fallback=None)
+        value = self.config.get("user", "identifier", fallback=None)
         if value is None:
             value = str(random.randint(1000, 9999)) + "-" + str(random.randint(100, 999)) + "-" + str(random.randint(10, 99))
-            self.set_user_identifier(value)
+            self.config["user"]["identifier"] = value
+            self._flush()
             self.logger.info("No user identifier stored, generated new identifier: " + value)
         return value
-    
-    def get_user_secret_key_file(self):
-        # TODO: Make sure the keyfile rights are "600"
-        if os.path.isfile(self.KEY_FILE):
-            return self.KEY_FILE
-        else:
-            # Although the private key could be (a lot) shorter, I am sticking to a
-            # private key with the byte length the same as the bit length of the curve for now.
-            # This won't be easy to guess ...
-            value = ''.join(random.choice(string.digits + string.ascii_letters + string.punctuation) for x in range(521)) + "\n"
-            self.logger.info("No secret key stored. Generated a new key as " + self.KEY_FILE)
-            f = open(self.KEY_FILE, "w")
-            f.write(value)
-            f.close()
 
-    def set_user_identifier(self, identifier):
-        self.config["identity"]["identifier"] = identifier
-        self._flush()
+    def get_user_keypair(self):
+        value = self.config.get("user", "private_key", fallback=None)
+        if value is None:
+            keypair = KeyPair() # generate new
+            self.config["user"]["private_key"] = base64.b64encode(keypair.private_key).decode("utf-8")
+            self.config["user"]["public_key"] = base64.b64encode(keypair.public_key).decode("utf-8")
+            self._flush()
+            self.logger.info("No user keypair stored, generated new pair")
+        else:
+            keypair = KeyPair(base64.b64decode(self.config.get("user", "private_key").encode("utf-8")), base64.b64decode(self.config.get("user", "public_key").encode("utf-8")))
+        return keypair
+
+    def get_node_keypair(self):
+        value = self.config.get("node", "private_key", fallback=None)
+        if value is None:
+            keypair = KeyPair() # generate new
+            self.config["node"]["private_key"] = base64.b64encode(keypair.private_key).decode("utf-8")
+            self.config["node"]["public_key"] = base64.b64encode(keypair.public_key).decode("utf-8")
+            self._flush()
+            self.logger.info("No node keypair stored, generated new pair")
+        else:
+            keypair = KeyPair(base64.b64decode(self.config.get("node", "private_key").encode("utf-8")), base64.b64decode(self.config.get("node", "public_key").encode("utf-8")))
+        return keypair

@@ -60,6 +60,7 @@ import zmq
 # request: message-log-append <user-identifier>
 #
 
+
 class Node(object):
     """A Node represents a peer in the network. A peer
        always has a (socket) address and a public_key

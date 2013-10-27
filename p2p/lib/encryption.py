@@ -21,68 +21,60 @@
 #
 
 import logging
+import random
+import string
+
 import seccure # py-seccure
 
-# TODO - AT:
-# I ported this straight from my own code base and adapted it for pyseccure. Hence, it may
-# feel a bit ... shoddy at present. No worries, I'll improve it as we go along. First thing
-# to note is that the secret key is read from a file, which is okay, but we should consider
-# reading it once and caching it (it's not going to change mid-session). Perhaps here or in
-# Configuration. Will get back to that later.
-#
+class KeyPair(object):
+    __slots__ = [ "private_key", "public_key" ] 
+
+    def __init__(self, _private_key=None, _public_key=None):
+        """Generates a new keypair. This object can be serialized to store the pair generated."""
+
+        assert (_private_key is None and _public_key is None) or (_private_key is not None and _public_key is not None)
+
+        if _private_key is None:
+            # Although the private key could be (a lot) shorter, I am sticking to a
+            # private key with the byte length the same as the bit length of the curve for now.
+            # This won't be easy to guess ...
+            self.private_key = ''.join(random.choice(string.digits + string.ascii_letters + string.punctuation) for x in range(521)).encode("utf-8")
+            self.public_key = str(seccure.passphrase_to_pubkey(self.private_key)).encode("utf-8")
+        else:
+            self.private_key = _private_key
+            self.public_key = _public_key
+        
 class Encryption(object):
     """Provides secure elliptic curve encryption.
        This is a convenience wrapper around py-seccure, which plays nice with our internal infra-structure.
+       Keys (where needed) are expected to be passed as byte strings.
     """
 
-    __slots__ = [ "configuration", "logger", "curve", "mac", "public_key" ]
+    __slots__ = [ "logger", "curve", "mac", "public_key" ]
 
-    def __init__(self, _configuration):
-        self.configuration = _configuration
+    def __init__(self):
         self.logger = logging.getLogger("jodawg.encryption")
-
         self.curve = "secp521r1/nistp521"
-        self.mac = 256
+        self.mac = 10 # FIXME: for some reason mac's different from 10 bytes do not work (at all), find out why, and find out if we need to do something about this - AT.
                 
-        self.public_key = self._generate_public_key()
-
-    def _generate_public_key(self):
-        secret_key_file = self.configuration.get_user_secret_key_file()
-        secret_key = open(secret_key_file(), "rb").read()
-
-        public_key = str(seccure.passphrase_to_pubkey(secret_key)) # priv -> pub
-        self.logger.info("Public key derived: '" + public_key + "'")
-        return public_key
-
-    def encrypt(self, message, receiver_key):
-        assert self.public_key is not None
-
-        cipher = ssecure.encrypt(msg, receiver_key, mac_bytes=self.mac)
-        self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + receiver_key + "'")
+    def encrypt(self, message, public_key):
+        cipher = seccure.encrypt(message.encode("utf-8"), public_key, mac_bytes=self.mac)
+        self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + public_key.decode("utf-8") + "'")
         return cipher
 
-    def decrypt(self, cipher):
-        secret_key_file = self.configuration.get_user_secret_key_file()
-        secret_key = open(secret_key_file(), "rb").read()
+    def decrypt(self, cipher, private_key):
+        message = seccure.decrypt(cipher, private_key) # decrypt
+        self.logger.debug("Decrypted " + str(len(message)) + " bytes")
+        return message.decode("utf-8")
 
-        message = ssecure.decrypt(cipher, secret_key) # decrypt
-        self.logger.debug("Decrypted " + str(len(message)) + " bytes for self")
-        return message
-
-    def sign(self, message):
-        secret_key_file = self.configuration.get_user_secret_key_file()
-        secret_key = open(secret_key_file(), "rb").read()
-
-        signature = ssecure.sign(message, secret_key) # sign
+    def sign(self, message, private_key):
+        signature = seccure.sign(message, private_key) # sign
         self.logger.debug("Signed " + str(len(message)) + " bytes with private key")
         return signature
 
-    def verify(self, message, signature, public_key=None):
-        if public_key is None:
-            public_key = self.public_key # Verify against own public key by default
-
-        authentic = ssecure.verify(message, signature, public_key)
-        self.logger.debug("Verified " + str(len(message)) + " bytes against key '" + public_key + "', authentic = " + str(authentic))
+    def verify(self, message, signature, public_key):
+        authentic = seccure.verify(message, signature, public_key)
+        self.logger.debug("Verified " + str(len(message)) + " bytes against key '" + public_key.decode("utf-8") + "', authentic = " + str(authentic))
         return authentic
 
 # TODO: Add some decent unit tests here ...

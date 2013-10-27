@@ -29,5 +29,14 @@ from lib.configuration import Configuration
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+configuration = Configuration()
+print(configuration.get_user_identifier())
+kp = configuration.get_user_keypair()
+
+e = Encryption()
+m = e.encrypt("Test", kp.public_key)
+print(m)
+print(e.decrypt(m, kp.private_key))
+
 #node = Node()
 #node.run()
