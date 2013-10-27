@@ -2,6 +2,8 @@
 #
 # Jodawg Peer-to-Peer Communicator
 #
+# constants.py: global constants
+#
 # Copyright (C) 2013 Almer S. Tigelaar & Windel Bouwman
 #
 # This program is free software: you can redistribute it and/or modify
@@ -17,30 +19,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Dependencies:
-# - python3 (obviously :D)
-# - seccure (https://github.com/bwesterb/py-seccure)
-# - zmq (http://zeromq.org/)
-#
 
-from lib.encryption import Encryption
-from lib.configuration import Configuration
-from lib.shell import Shell
-
-shell = Shell()
-shell.run()
-
-#import logging
-#logging.basicConfig(level=logging.DEBUG)
-
-# configuration = Configuration()
-# print(configuration.get_user_identifier())
-# kp = configuration.get_user_keypair()
-
-# e = Encryption()
-# m = e.encrypt("Test", kp.public_key)
-# print(m)
-# print(e.decrypt(m, kp.private_key))
-
-#node = Node()
-#node.run()
+JODAWG_VERSION='0.1'
+JODAWG_VERSION_STATUS='pre-alpha'
+JODAWG_VERSION_NAME='Yorkshire Terrier'
