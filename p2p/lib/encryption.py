@@ -26,7 +26,7 @@ import string
 
 import seccure # py-seccure
 
-class KeyPair(object):
+class KeyPair:
     __slots__ = [ "private_key", "public_key" ] 
 
     def __init__(self, _private_key=None, _public_key=None):
@@ -44,12 +44,13 @@ class KeyPair(object):
             self.private_key = _private_key
             self.public_key = _public_key
         
-class Encryption(object):
+class Encryption:
     """Provides secure elliptic curve encryption.
        This is a convenience wrapper around py-seccure, which plays nice with our internal infra-structure.
        Keys (where needed) are expected to be passed as byte strings.
     """
 
+    # WB: Why use slots?
     __slots__ = [ "logger", "curve", "mac", "public_key" ]
 
     def __init__(self):
@@ -78,3 +79,4 @@ class Encryption(object):
         return authentic
 
 # TODO: Add some decent unit tests here ...
+# WB: Check testencryption.py

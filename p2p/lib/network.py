@@ -76,7 +76,7 @@ class Node(object):
         self.public_key = None
         self.user = None
 
-class Node(object):
+class Node:
     __slots__ = [ "context", "super_peers_locations" ]
 
     def __init__(self):
