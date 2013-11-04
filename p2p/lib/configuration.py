@@ -104,3 +104,6 @@ class Configuration(object):
         else:
             keypair = KeyPair(base64.b64decode(self.config.get("node", "private_key").encode("utf-8")), base64.b64decode(self.config.get("node", "public_key").encode("utf-8")))
         return keypair
+
+    def get_bootstrap_peer_addresses(self):
+        return []

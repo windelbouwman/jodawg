@@ -23,6 +23,9 @@
 import logging
 import random
 import string
+import zlib
+import json
+
 
 import seccure # py-seccure
 
@@ -63,10 +66,18 @@ class Encryption:
         self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + public_key.decode("utf-8") + "'")
         return cipher
 
+    def encrypt_compress_json(self, dictionary, public_key):
+        # Convenience method to jsonify a dictionary, encrypt it and compress it with zlib in one go.
+        return self.encrypt(zlib.compress(json.dumps(dictionary, sort_keys=True), 9), public_key)
+
     def decrypt(self, cipher, private_key):
         message = seccure.decrypt(cipher, private_key) # decrypt
         self.logger.debug("Decrypted " + str(len(message)) + " bytes")
         return message.decode("utf-8")
+
+    def decrypt_decompress_json(self, cipher, private_key):
+        # Convenience method
+        return json.loads(zlib.decompress(self.decrypt(cipher, private_key)))
 
     def sign(self, message, private_key):
         signature = seccure.sign(message, private_key) # sign

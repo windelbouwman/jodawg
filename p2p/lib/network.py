@@ -20,9 +20,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import logging
-import zmq
-
 # Thoughts on on-the-wire protocol:
 # * protobuf has the disadvantage of not including the protocol
 #   specification in the wire format (hence, it requires sender/receiver
@@ -60,8 +57,12 @@ import zmq
 # request: message-log-append <user-identifier>
 #
 
+import logging
+import zlib
 
-class Node(object):
+import zmq
+
+class Node:
     """A Node represents a peer in the network. A peer
        always has a (socket) address and a public_key
        for communication. A node may or may not have
@@ -69,45 +70,54 @@ class Node(object):
        have AT MOST one user.
     """
 
-    __slots__ = [ "address", "public_key", "none" ]
-
-    def __init__(self):
-        self.address = None
-        self.public_key = None
-        self.user = None
-
-class Node:
-    __slots__ = [ "context", "super_peers_locations" ]
+    __slots__ = [ "address", "public_key", "user", "context", "handlers" ]
 
     def __init__(self):
         self.context = zmq.Context()
-        self.super_peers_locations = [ "tcp://127.0.0.1:4363" ]
+        self.address = "tcp://127.0.0.1:4363"
+        self.user = None
+        self.handlers = []
+
+    def overlay_service_initialize(self):
+
+    def overlay_service_handle(self, content):
+        m = json.loads(zlib.decompress(content))
+        
+    def presence_service_initialize(self):
+        pass
+
+    def presence_service_handle(self):
+        pass
+
+    def message_service_initialize(self):
+        pass
+
+    def message_service_handle(self, content):
+        m = json.loads(zlib.decompress(content))
+
+    def register_service_handler(self, handler):
+        self.handlers.append(handler)
 
     def run(self):
         
-        # AT: So, this is how a multi-poller would work in ZMQ. We need to set-up
-        # some "maintenance" messaging on the supers which would probably work
-        # with a (stateless) PUB/SUB system. This would involve assisting in
-        # searching for other users for example. An other application of this
-        # is chat synchronization. Though, I first want to look into a proper
-        # way to "version" and synchronize MessageLogs, as that really is
-        # the basis of the application. Both PUB/SUB as well as regular
-        # sockets will be needed.
+        # NOTE: I use a poller here to be able to expand
+        # easily to a multi-socket implementation later, just
+        # using one socket for now.
 
         poller = zmq.Poller()
-
-        super_peers = []
-        for location in self.super_peers_locations:
-            super_peer = context.socket(zmq.SUB)
-            super_peer.connect(location)
-            super_peer.setsockopt_string(zmq.SUBSCRIBE, "SYSTEM")
-            poller.register(super_peer, zmq.POLLIN)
-            super_peers.append(super_peer)
+        
+        # Main Socket
+        main_socket = context.socket(zmq.REP)
+        main_socket.bind(self.address)
+        poller.register(main_socket, zmq.POLLIN)
 
         while True:
             socks = dict(poller.poll())
-
-            for super_peer in super_peers:
-                if super_peer in socks and socks[super_peer] == zmq.POLLIN:
-                    message = receiver.recv()
-                    # DO SOMETHING
+            
+            if main_socket in socks and socks[main_socket] == zmq.POLLIN:
+                message = main_socket.recv()
+                
+                for handler in self.handlers:
+                    if handler.handle_message(message):
+                        break        
+        

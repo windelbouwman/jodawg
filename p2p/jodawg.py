@@ -27,6 +27,22 @@ from lib.encryption import Encryption
 from lib.configuration import Configuration
 from lib.shell import Shell
 
+
+from lib.network import Node
+from lib.overlay import OverlayService
+
+configuration = Configuration()
+
+# Create the network node
+# and register appropriate handlers for
+# the various network services.
+
+node = Node()
+node.register_handler(OverlayService())
+# node.register_handler(PresenceService())
+# node.register_handler(MessagingService())
+# etc.
+
 shell = Shell()
 shell.run()
 

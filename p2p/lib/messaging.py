@@ -157,3 +157,9 @@ class MessageLog(object):
         self.messages.append(message)
         self.message_tracking.add((message.header.identifier, message.header.revision))
         self.revision += 1
+
+class MessagingService():
+
+    def __init__(self):
+        pass
+

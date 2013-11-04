@@ -51,3 +51,9 @@ class User(object):
         self.status = "chat"
         self.identifier = 1
         self.nickname = "default"
+
+class Users(object):
+    
+    def __init__(self):
+        pass
+
