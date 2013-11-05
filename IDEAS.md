@@ -45,3 +45,54 @@ Thoughts:
 Future:
 Though we don't want to bloat our protocol in the beginning. I do suggest that we allow for sending audio and video as well eventually. This may influence some design choices in the beginning [AT].
 
+Thoughts on a secure protocol
+=============================
+Encryption really is only one part of security. There are several others that are important
+for a truly reliable secure messaging mechanism. Here are some considerations pulled from other
+sources:
+1) Perfect-forward secrecy: if a private key is obtained (by a third malicious party) sometime
+   in the future, one should not be able to decrypt all the messages sent using that key. A solution
+   to this is to use 'session keys', meaning: generating new keys for each session. We can do this
+   using node public/private keypairs which cycle regularly. Effectively we are applying two layers
+   of encryption. Even if one captures all communication between two nodes, it's impossible to actually
+   decrypt that (even if a user's private key is stolen later).
+2) Identity Verification: a difficult problem, there is the WOT (web of trust) model employed by PGP,
+   unfortunately it is rather cumbersome to confront users with it. Instead a TOFU (trust on first use)
+   model is often employed (indeed, BitTorrent also more or less does this with file exchange, combined
+   with tit-for-tat).
+3) Identity Representation: Many p2p systems use key fingerprint for this, which collapse key and
+   identifier into one representation. Problem is that it is not user friendly, so QR codes,
+   barcodes and whatnot must be used instead, which may be to cumbersome as well (if they are the
+   only option). For now I've chosen a simple numeric identifier. This enabled anonymity more effectively
+   than the standard "user@domain.tld" notation. Though, for ease of use one could associate such 
+   'profile' fields with an identifier.
+
+See, https://leap.se/en/docs/tech/hard-problems for an overview of big seven problems, copied here:
+1) Authenticity problem: Public key validation is very difficult for users to manage, but without it you cannot have confidentiality.
+2) Meta-data problem: Existing protocols are vulnerable to meta-data analysis, even though meta-data is often much more sensitive than content.
+3) Asynchronous problem: For encrypted communication, you must currently choose between forward secrecy or the ability to communicate asynchronously.
+4) Group problem: In practice, people work in groups, but public key cryptography doesn’t.
+5) Resource problem: There are no open protocols to allow users to securely share a resource.
+6) Availability problem: People want to smoothly switch devices, and restore their data if they lose a device, but this very difficult to do securely.
+7) Update problem: Almost universally, software updates are done in ways that invite attacks and device compromises.
+
+How do we handle these problems?
+1) I am thinking of a form of hierarchical keysigning (using a limited number of invites).
+2) We simply encrypt everything that goes over the wire using session keys (meta-data included).
+   That doesn't solve the problem completely though, as we still need a way to be able to 'deny' that
+   communication was specifically between two peers. There are some solutions to this, like onion routing.
+   I am thinking of scattering copies of messages over the network, where each node tries to decrypt what
+   was sent with it's private key. Most will get jibberish, but the target node will be able to succesfully
+   decrypt. Perhaps for more deniability, messages must note be signed when communicating at the node level.
+3) OTR (off the record) works within a single session by cycling keys for each new session. However, there
+   is not asynchronous equivalent for non-live chat. I think key cycling for node-to-node communication 
+   solves this however. It preserves forward secrecy using the node keys and asynchronous communication
+4) One way to solve this is to create group-level keys, but these need to be kept somewhere. Hence, we
+   are essentially stuck with re-encrypting messages to each client. It think that's okay for now, but
+   it does not scale up very well of course.
+5) This can be solved by putting ALL data in band (not linking to external, unsecure sources). This is okay
+   for images and such, but for URL's for example it's impossible ...
+6) Nodes should synchronize their (user) data as well.
+7) We should think hard about how updates should be rolled out, to prevent creating a major loophole there ...
+
+Some more on OTR: https://whispersystems.org/blog/simplifying-otr-deniability/
