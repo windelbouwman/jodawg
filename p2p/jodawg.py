@@ -23,6 +23,7 @@
 # - zmq (http://zeromq.org/)
 #
 
+import argparse
 import logging
 
 from lib.encryption import Encryption
@@ -31,15 +32,30 @@ from lib.shell import Shell
 
 from lib.network import Node
 from lib.overlay import OverlayService
+from lib.constants import *
 
-logging.basicConfig(level=logging.DEBUG)
+# ARGUMENT PARSING
+# ================
 
+parser = argparse.ArgumentParser(description='Jodawg (%s - %s - %s)' % (JODAWG_VERSION, JODAWG_VERSION_NAME, JODAWG_VERSION_STATUS))
+parser.add_argument("-d", "--debug", action="store_true", help="Enables debugging messages.")
+parser.add_argument("-c", "--configuration-file", type=str, help="Location of configuration file (defaults to ~/.jodawg.cfg)")
+parser.set_defaults(debug=True, configuration_file=None) # TODO: Set "debug=false" later on.
+args = parser.parse_args() 
+
+# RUNNING
+# =======
 logger = logging.getLogger("jodawg.main")
 
-logger.debug("Initializing Configuration")
-configuration = Configuration()
+if args.debug:
+    logging.basicConfig(level=logging.DEBUG) # Enables debug messages
+else:
+    logging.basicConfig(level=logging.WARNING)
 
-logger.debug("Initializing Encryption")
+logger.debug("Initializing Configuration")
+configuration = Configuration(args.configuration_file)
+
+logger.debug("Initializing Encryption") # This is actually stateless, but oh well, can re-use the same object throughout
 encryption = Encryption()
 
 # Create the network node, register appropriate handlers for

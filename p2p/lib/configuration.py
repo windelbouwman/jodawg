@@ -46,9 +46,13 @@ class Configuration(object):
 
     __slots__ = [ "CONFIG_FILE", "config", "logger" ]
 
-    def __init__(self):
+    def __init__(self, location=None):
         self.logger = logging.getLogger("jodawg.config")
-        self.CONFIG_FILE=os.path.join(os.path.expanduser("~"), ".jodawg.cfg")
+
+        if location is None:
+            self.CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".jodawg.cfg")
+        else:
+            self.CONFIG_FILE = location
 
         self.config = configparser.ConfigParser()
         if os.path.isfile(self.CONFIG_FILE):
