@@ -80,21 +80,59 @@ class OverlayService:
     #     user.register_node(OverlayNode(m.node_address, m.node_key))
     #     return True
 
+
+    # TODO:
+    # There's a bit more to this than just storing (address, pkey) pairs.
+    # That list is useful for knowing all peers (on and off-line ones). However, we also need to
+    # keep track of which peers we (believe to be) on-line. We need a data-structure for this that's a bit
+    # more complex. Hence, I suggest moving from using configuration() for state storage to something more
+    # complex (perhaps just in memory at first). Configuration can be used to just keep track of what peers
+    # we've seen though (as to be able to use them as bootstraps later). That seems perfectly valid.
+
     def _handle_node_join(self, message):
-        pass
+
+        # Check fields
+        if (not "node_address" in message) or (not "node_public_key" in message) or (not "signature" in message):
+            m = { "response" : "node_join_denied", "reason" : "missing mandatory fields!" }
+            return self.encryption.encrypt_compress_json(m, node_public_key)
+
+        # Verify signature
+        if not self.encryption.verify(message["node_public_key"], message["signature"], message["node_public_key"]):
+            m = { "response" : "node_join_denied", "reason" : "invalid signature!" }
+            return self.encryption.encrypt_compress_json(m, node_public_key)
+            
+        # Build response + send
+        m = { "response" : "node_join_approved" }
+        for (node_address, node_public_key) in self.configuration.get_known_peers():
+            m[node_address] = node_public_key
+
+        self.configuration_add_known_peer(message["node_address"], message["node_public_key"])
+        return m
 
     def _handle_node_leave(self, message):
-        pass
+
+        # # Check fields
+        # if (not "node_address" in message) or (not "signature" in message):
+        #     m = { "response" : "node_join_denied", "reason" : "missing mandatory fields!" }
+        #     return self.encryption.encrypt_compress_json(m, node_public_key)
+
+        # # Verify signature
+        # if not self.encryption.verify(message["node_address"], message["signature"], message["node_address"]):
+        #     m = { "response" : "node_join_denied", "reason" : "invalid signature!" }
+        #     return self.encryption.encrypt_compress_json(m, node_public_key)
 
     def handle_message(self, message):
-        m = self.encryption.decrypt_decompress_json(message)
+        try:
+            m = self.encryption.decrypt_decompress_json(message, self.configuration.get_node_keypair().private_key)
+        except:
+            return None # Sends back error response
 
         if m[command] == "node_join":
             return self._handle_node_join(message)
         elif m[command] == "node_leave":
             return self._handle_node_leave(message)
-        else:
-            print("Unrecognized command: " + m[command])
+
+        return False # Someone else should handle this
 
     # def authorize_user(self, user_id, user_public_key):
     #     signature = self.encryption.sign(user_public_key, self.configuration.get_user_keypair().private_key)
@@ -105,7 +143,7 @@ class OverlayService:
     def join(self):
         self.logger.debug("Joining the Network")
 
-        bootstrap_peer_addresses = self.configuration.get_bootstrap_peer_addresses()
+        bootstrap_peer_addresses = self.configuration.get_known_peers()
         if len(bootstrap_peer_addresses) == 0:
             self.logger.debug("No known bootstrap peers, assuming disjunct operation")
             return True
@@ -116,13 +154,20 @@ class OverlayService:
             socket = self.context.socket(zmq.REQ)
             sock.connect(bootstrap_node_address)
 
-            node_address = "TODO"
-            node_public_key = configuration.get_node_keypair().public_key
+            node_address = self.configuration.get_node_address()
+            node_public_key = self.configuration.get_node_keypair().public_key
+            signature = self.encryption.sign(node_public_key, self.configuration.get_node_keypair().private_key)
 
-            m = { "command" : "node_join", "node_address" : node_address, "node_public_key" : node_public_key }
+            m = { "request" : "node_join", "node_address" : node_address, "node_public_key" : node_public_key, "signature" : signature }
             sock.send(self.encryption.encrypt_compress_json(m, bootstrap_node_public_key))
 
-            bootstrap_message = sock.recv()
+            response = sock.recv()
+
+            # One error response, try different peer
+            if response == "#ERR":
+                continue 
+
+            self.encryption.decrypt_decompress_json(response, self.configuration.get_node_keypair().private_key)
 
         return True
 

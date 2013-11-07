@@ -73,16 +73,15 @@ class Node(threading.Thread):
 
     __slots__ = [ "logger", "address", "public_key", "user", "context", "handlers", "terminate_event" ]
 
-    def __init__(self):
+    def __init__(self, _configuration):
         threading.Thread.__init__(self)
         self.terminate_event = threading.Event()
 
+        self.configuration = _configuration
         self.logger = logging.getLogger("jodawg.node")
         self.context = zmq.Context()
-        self.address = "tcp://127.0.0.1:4363"
         self.user = None
         self.handlers = {}
-        
 
     def add_service(self, name, handler):
         self.handlers[name] = handler
@@ -106,7 +105,7 @@ class Node(threading.Thread):
         
         # Main Socket
         main_socket = self.context.socket(zmq.REP)
-        main_socket.bind(self.address)
+        main_socket.bind(self.configuration.get_node_address())
         poller.register(main_socket, zmq.POLLIN)
 
         self.terminate_event.clear()
@@ -118,8 +117,15 @@ class Node(threading.Thread):
                 message = main_socket.recv()
                 
                 for (handler_name, handler) in self.handlers.iteritems():
-                    if handler.handle_message(message):
-                        self.logger.debug("Message handled by '%s' service" % (handler_name))
+                    response = handler.handle_message(message):
+                    if response is not False:
+                        if response is not None:
+                            main_socket.send(response)
+                            self.logger.debug("Message handled by '%s' service" % (handler_name))
+                        else:
+                            main_socket.send("#ERR")
+                            self.logger.debug("Message captured but not handled by '%s' service: sending error response" % (handler_name))
+                            pass
                         break
 
             # Terminate request!

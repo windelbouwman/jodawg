@@ -62,7 +62,7 @@ encryption = Encryption()
 # the various network services. The node runs in its own thread.
 
 logger.debug("Initializing Node")
-node = Node()
+node = Node(configuration)
 node.add_service("overlay", OverlayService(configuration, encryption))
 # node.register_handler(PresenceService())
 # node.register_handler(MessagingService())
