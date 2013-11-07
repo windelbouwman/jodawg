@@ -23,28 +23,51 @@
 # - zmq (http://zeromq.org/)
 #
 
+import logging
+
 from lib.encryption import Encryption
 from lib.configuration import Configuration
 from lib.shell import Shell
 
-
 from lib.network import Node
 from lib.overlay import OverlayService
 
+logging.basicConfig(level=logging.DEBUG)
+
+logger = logging.getLogger("jodawg.main")
+
+logger.debug("Initializing Configuration")
 configuration = Configuration()
 
-# Create the network node
-# and register appropriate handlers for
-# the various network services.
+logger.debug("Initializing Encryption")
+encryption = Encryption()
 
+# Create the network node, register appropriate handlers for
+# the various network services. The node runs in its own thread.
+
+logger.debug("Initializing Node")
 node = Node()
-node.register_handler(OverlayService())
+node.add_service("overlay", OverlayService(configuration, encryption))
 # node.register_handler(PresenceService())
 # node.register_handler(MessagingService())
 # etc.
 
-shell = Shell()
-shell.run()
+logger.debug("Starting Node")
+node.start()
+
+# START SHELL (also in its own thread)
+logger.debug("Starting Shell")
+shell = Shell(configuration, node)
+shell.start()
+
+shell.join()
+logger.debug("Shell Stopped")
+
+logger.debug("Shutting Down Node")
+node.terminate()
+node.join()
+
+logger.debug("Terminated")
 
 #import logging
 #logging.basicConfig(level=logging.DEBUG)

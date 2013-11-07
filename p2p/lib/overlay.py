@@ -23,6 +23,7 @@
 import zlib
 import json
 import zmq
+import logging
 
 class OverlayNode:
 
@@ -62,42 +63,68 @@ class OverlayStore:
 class OverlayService:
     
     def __init__(self, _configuration, _encryption):
+        self.logger = logging.getLogger("jodawg.overlay")
         self.configuration = _configuration
         self.encryption = _encryption
         self.store = OverlayStore()
         self.neighbours = []
 
-    def _handle_join(self, message):
-        if m.user_id in self.store.users: # Known user
-            user = self.store.users[m.user_id]
-        else: # Unknown user
-            user = OverlayUser(m.user_id, m.user_key)
-            user.register_node()
 
-        return True
+    # def _handle_join(self, message):
+    #     if m.user_id in self.store.users: # Known user
+    #         user = self.store.users[m.user_id]
+    #     elif len(self.store.users.keys()) == 0: # Unknown user, but we do not HAVE any users yet!
+    #         user = OverlayUser(m.user_id, m.user_key)
+    #         self.store.users[m.user_id] = user
+
+    #     user.register_node(OverlayNode(m.node_address, m.node_key))
+    #     return True
+
+    def _handle_node_join(self, message):
+        pass
+
+    def _handle_node_leave(self, message):
+        pass
 
     def handle_message(self, message):
         m = self.encryption.decrypt_decompress_json(message)
 
         if m[command] == "node_join":
-            return self._handle_join(message)
+            return self._handle_node_join(message)
+        elif m[command] == "node_leave":
+            return self._handle_node_leave(message)
         else:
             print("Unrecognized command: " + m[command])
 
+    # def authorize_user(self, user_id, user_public_key):
+    #     signature = self.encryption.sign(user_public_key, self.configuration.get_user_keypair().private_key)
+    #     user = OverlayUser(user_id, user_public_key)
+    #     user.add_signature(signature)
+    #     self.store.users[m.user_id] = user
+
     def join(self):
+        self.logger.debug("Joining the Network")
 
-        for (node_address, node_public_key) in self.configuration.get_bootstrap_peer_addresses():
+        bootstrap_peer_addresses = self.configuration.get_bootstrap_peer_addresses()
+        if len(bootstrap_peer_addresses) == 0:
+            self.logger.debug("No known bootstrap peers, assuming disjunct operation")
+            return True
+
+        for (bootstrap_node_address, bootstrap_node_public_key) in bootstrap_peer_addresses:
+            self.logger.debug("Trying %s for bootstrap" % (bootstrap_node_address))
+
             socket = self.context.socket(zmq.REQ)
-            sock.connect(node_address)
+            sock.connect(bootstrap_node_address)
 
-            user_id = configuration.get_user_identifier()
-            user_key = configuration.get_user_keypair().public_key
-            node_key = configuration.get_node_keypair().public_key
+            node_address = "TODO"
+            node_public_key = configuration.get_node_keypair().public_key
 
-            m = { "command" : "node_join", "user_id" : user_id, "user_key" : user_key, "node_key" : node_key, "parent_user_id" : "x", "parent_user_key" : "y" }
-            sock.send(self.encryption.encrypt_compress_json(m, node_public_key))
+            m = { "command" : "node_join", "node_address" : node_address, "node_public_key" : node_public_key }
+            sock.send(self.encryption.encrypt_compress_json(m, bootstrap_node_public_key))
 
             bootstrap_message = sock.recv()
+
+        return True
 
     def leave(self):
         

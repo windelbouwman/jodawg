@@ -57,12 +57,13 @@
 # request: message-log-append <user-identifier>
 #
 
+import threading
 import logging
 import zlib
 
 import zmq
 
-class Node:
+class Node(threading.Thread):
     """A Node represents a peer in the network. A peer
        always has a (socket) address and a public_key
        for communication. A node may or may not have
@@ -70,33 +71,28 @@ class Node:
        have AT MOST one user.
     """
 
-    __slots__ = [ "address", "public_key", "user", "context", "handlers" ]
+    __slots__ = [ "logger", "address", "public_key", "user", "context", "handlers", "terminate_event" ]
 
     def __init__(self):
+        threading.Thread.__init__(self)
+        self.terminate_event = threading.Event()
+
+        self.logger = logging.getLogger("jodawg.node")
         self.context = zmq.Context()
         self.address = "tcp://127.0.0.1:4363"
         self.user = None
-        self.handlers = []
-
-    def overlay_service_initialize(self):
-
-    def overlay_service_handle(self, content):
-        m = json.loads(zlib.decompress(content))
+        self.handlers = {}
         
-    def presence_service_initialize(self):
-        pass
 
-    def presence_service_handle(self):
-        pass
+    def add_service(self, name, handler):
+        self.handlers[name] = handler
+        self.logger.debug("Service '%s' was added" % (name))
 
-    def message_service_initialize(self):
-        pass
+    def get_service(self, name):
+        return self.handlers[name]
 
-    def message_service_handle(self, content):
-        m = json.loads(zlib.decompress(content))
-
-    def register_service_handler(self, handler):
-        self.handlers.append(handler)
+    def terminate(self):
+        self.terminate_event.set()
 
     def run(self):
         
@@ -104,20 +100,29 @@ class Node:
         # easily to a multi-socket implementation later, just
         # using one socket for now.
 
+        self.logger.debug("Starting node services")
+
         poller = zmq.Poller()
         
         # Main Socket
-        main_socket = context.socket(zmq.REP)
+        main_socket = self.context.socket(zmq.REP)
         main_socket.bind(self.address)
         poller.register(main_socket, zmq.POLLIN)
 
+        self.terminate_event.clear()
         while True:
-            socks = dict(poller.poll())
-            
+            socks = dict(poller.poll(1000))
+
             if main_socket in socks and socks[main_socket] == zmq.POLLIN:
+                self.logger.debug("Message received")
                 message = main_socket.recv()
                 
-                for handler in self.handlers:
+                for (handler_name, handler) in self.handlers.iteritems():
                     if handler.handle_message(message):
-                        break        
+                        self.logger.debug("Message handled by '%s' service" % (handler_name))
+                        break
+
+            # Terminate request!
+            if self.terminate_event.is_set():
+                break
         

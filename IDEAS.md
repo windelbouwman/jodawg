@@ -84,9 +84,9 @@ How do we handle these problems?
    I am thinking of scattering copies of messages over the network, where each node tries to decrypt what
    was sent with it's private key. Most will get jibberish, but the target node will be able to succesfully
    decrypt. Perhaps for more deniability, messages must note be signed when communicating at the node level.
-3) OTR (off the record) works within a single session by cycling keys for each new session. However, there
-   is not asynchronous equivalent for non-live chat. I think key cycling for node-to-node communication 
-   solves this however. It preserves forward secrecy using the node keys and asynchronous communication
+3) OTR (off the record) works within a single session by cycling keys for each new session w/o exchange.
+   However, there is not asynchronous equivalent for non-live chat. key cycling for node-to-node communication 
+   partially solves this. It preserves forward secrecy using the node keys and asynchronous communication
 4) One way to solve this is to create group-level keys, but these need to be kept somewhere. Hence, we
    are essentially stuck with re-encrypting messages to each client. It think that's okay for now, but
    it does not scale up very well of course.
