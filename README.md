@@ -1,3 +1,22 @@
-The OpenShift `python` cartridge documentation can be found at:
 
-https://github.com/openshift/origin-server/tree/master/cartridges/openshift-origin-cartridge-python/README.md
+Jodawg
+======
+
+Open source secure messaging.
+
+Introduction
+------------
+
+TODO
+
+Installation
+------------
+
+TODO
+
+Build status
+------------
+
+[![Build Status](https://travis-ci.org/windelbouwman/jodawg.png?branch=master)](https://travis-ci.org/windelbouwman/jodawg)
+
+
