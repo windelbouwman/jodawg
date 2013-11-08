@@ -7,5 +7,5 @@ python:
 # command to run tests
 script:
  - cd p2p
- - nosetests -v
+ - python -m unittest -v
 
