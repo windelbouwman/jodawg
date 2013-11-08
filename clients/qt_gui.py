@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import logging
 
 try:
     from PyQt5 import QtWidgets, QtCore
@@ -9,26 +10,20 @@ except ImportError:
     from PyQt4 import QtCore
 
 print('Qt version:', QtCore.QT_VERSION_STR)
-
-import zmq
-
 assert sys.version_info.major == 3
 
-# TODO: import chatlib?
-
-context = zmq.Context()
-socket = context.socket(zmq.PUB)
-socket.bind('tcp://127.0.0.1:5000')
-
-def tx(txt):
-    txt = txt.encode('ascii')
-    assert type(txt) is bytes
-    socket.send(txt)
-
+sys.path.insert(0, '../p2p')
+from lib.network import Node
+from lib.configuration import Configuration
+logging.basicConfig(level=logging.DEBUG)
 
 class ContactListWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+        configuration = Configuration()
+        self.node = Node(configuration)
+        #self.node.run()
+        self.cw = ChatWidget()
 
 
 class ChatWidget(QtWidgets.QWidget):
@@ -52,7 +47,6 @@ class ChatWidget(QtWidgets.QWidget):
         self.messageEdit.clear()
         assert type(txt) is str
         print(txt)
-        tx(txt)
         # TODO: transmit text :)
 
 
