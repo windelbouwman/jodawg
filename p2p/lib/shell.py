@@ -49,6 +49,10 @@ class Shell(threading.Thread):
         self.node.get_service("overlay").join()
         print("join completed")
 
+    def command_leave(self):
+        self.node.get_service("overlay").leave()
+        print("leave completed")
+
     def run(self):
         print('Jodawg (%s - %s - %s) [READY]' % (JODAWG_VERSION, JODAWG_VERSION_NAME, JODAWG_VERSION_STATUS))
         print('Your identity is %s' % (self.configuration.get_user_identifier()))
@@ -67,7 +71,7 @@ class Shell(threading.Thread):
             if command == 'join':
                 self.command_join()
             if command == 'leave':
-                break
+                self.command_leave()
             elif command == 'help' or command == '?':
                 self.command_help()
 
