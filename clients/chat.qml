@@ -1,4 +1,3 @@
-
 import QtQuick 2.0
 import QtQuick.Controls 1.0
 
@@ -7,8 +6,8 @@ Item {
     var txt = tf_msg.text;
     console.log(txt);
     tf_msg.text = '';
-    logX.append({"name":"t2", "msg": txt})
-    chatLog.positionViewAtEnd()
+    chatlog.say("t2", txt);
+    chatLogView.positionViewAtEnd()
   }
   width: 400
   height: 300
@@ -38,7 +37,7 @@ Item {
          height: childrenRect.height + 5
          width: childrenRect.width + 50
          Text {
-           text: name
+           text: cl_name + cl_time
          }
        }
        Rectangle {
@@ -47,7 +46,7 @@ Item {
          height: childrenRect.height + 15
          width: childrenRect.width + 50
         Text { 
-          text: msg
+          text: cl_msg
         }
        }
      }
@@ -57,10 +56,10 @@ Item {
   Column {
   anchors.fill: parent
   ListView {
-    id: chatLog
+    id: chatLogView
     height: 200
     width: parent.width
-    model: logX
+    model: chatlog
     delegate: msgDelegate
     clip: true
   }
