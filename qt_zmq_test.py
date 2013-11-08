@@ -13,6 +13,7 @@ def xMitter():
         print('xmit:', msg)
         sock.send(msg.encode('ascii'))
         time.sleep(0.1)
+    ctx.term()
 
 if __name__ == '__main__':
     p = Process(target=xMitter)
@@ -26,11 +27,17 @@ if __name__ == '__main__':
         t = QTimer()
         t.timeout.connect(app.quit)
         t.start(3000)  # Quit app after 3 seconds.
+        t2 = QTimer()
+        def gotTim():
+            print('tim')
+        t2.timeout.connect(gotTim)
+        t2.start(100)
         fd = sock.getsockopt(zmq.FD)
         sn = QSocketNotifier(fd, QSocketNotifier.Read)
         def gotMsg(sock_fd):
-            msg = sock.recv()
-            print('rcv:', msg)
+            while sock.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+                msg = sock.recv()
+                print('rcv:', msg)
         sn.activated.connect(gotMsg)
         app.exec()
     finally:
