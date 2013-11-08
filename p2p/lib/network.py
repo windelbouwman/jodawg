@@ -119,13 +119,8 @@ class Node(threading.Thread):
                 for (handler_name, handler) in self.handlers.iteritems():
                     response = handler.handle_message(message)
                     if response is not False:
-                        if response is not None:
-                            main_socket.send(response)
-                            self.logger.debug("Message handled by '%s' service" % (handler_name))
-                        else:
-                            main_socket.send("#ERR")
-                            self.logger.debug("Message captured but not handled by '%s' service: sending error response" % (handler_name))
-                            pass
+                        main_socket.send(response)
+                        self.logger.debug("Message handled by '%s' service" % (handler_name))
                         break
 
             # Terminate request!

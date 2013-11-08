@@ -112,14 +112,17 @@ class Configuration(object):
     def get_node_address(self):
         return self.config.get("node", "address", fallback="tcp://127.0.0.1:4363")
 
-    def get_known_peers(self):
-        return [ (node_address, base64.b64decode(node_public_key.encode("utf-8"))) for (node_address, node_public_key) in self.config.items("known_nodes") ]
+    def get_known_nodes(self):
+        try:
+            return [ (node_address, base64.b64decode(node_public_key.encode("utf-8"))) for (node_address, node_public_key) in self.config.items("known_nodes") ]
+        except:
+            return []
 
-    def has_known_peer(self, node_address):
+    def has_known_node(self, node_address):
         return self.config.has_section("known_nodes", node_address)
 
-    def add_known_peer(self, node_address, node_public_key):
+    def add_known_node(self, node_address, node_public_key):
         self.config["known_nodes"][node_address] = base64.b64encode(node_public_key).decode("utf-8")
 
-    def remove_known_peer(self, node_address):
+    def remove_known_node(self, node_address):
         self.config.remove_option("known_nodes", node_address)
