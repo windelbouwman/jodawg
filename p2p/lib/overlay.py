@@ -120,6 +120,7 @@ class OverlayService:
         # if not self.encryption.verify(message["node_address"], message["signature"], message["node_address"]):
         #     m = { "response" : "node_join_denied", "reason" : "invalid signature!" }
         #     return self.encryption.encrypt_compress_json(m, node_public_key)
+        pass
 
     def handle_message(self, message):
         try:

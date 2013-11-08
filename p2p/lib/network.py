@@ -117,7 +117,7 @@ class Node(threading.Thread):
                 message = main_socket.recv()
                 
                 for (handler_name, handler) in self.handlers.iteritems():
-                    response = handler.handle_message(message):
+                    response = handler.handle_message(message)
                     if response is not False:
                         if response is not None:
                             main_socket.send(response)
