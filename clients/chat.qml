@@ -1,6 +1,7 @@
 import QtQuick 2.0
 import QtQuick.Controls 1.0
 import QtQuick.Layouts 1.0
+import QtMultimedia 5.0
 
 Rectangle {
 
@@ -9,8 +10,13 @@ Rectangle {
     tf_msg.text = '';
     // TODO: chatlog.onRowsInserted: 
     chatLogView.positionViewAtEnd();
+    bark.play();
   }
 
+  MediaPlayer {
+    id: bark
+    source: "bark_twice.mp3"
+  }
 
   Component {
     id: msgDelegate
