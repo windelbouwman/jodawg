@@ -4,6 +4,7 @@ python: "3.3"
 virtualenv:
  system_site_packages: true
 before_install:
+ - sudo apt-get install libgmp-dev
  - sudo apt-get install python3-crypto
 install: 
  - pip install -r requirements.txt
