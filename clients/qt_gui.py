@@ -3,7 +3,8 @@
 import sys
 import logging
 from PyQt5.QtWidgets import QWidget, QApplication, QVBoxLayout
-from PyQt5 import QtCore, QtQuick
+from PyQt5 import QtCore
+from PyQt5.QtQuick import QQuickView
 from PyQt5.QtCore import Qt, QModelIndex, QAbstractListModel, QUrl
 
 print('Qt version:', QtCore.QT_VERSION_STR)
@@ -27,7 +28,6 @@ class ChatLogModel(QAbstractListModel):
     def __init__(self):
         super().__init__()
         self.log = []
-        self.say('hello', 'x')
         props = ['name', 'msg', 'time']
         self._roles = {Qt.UserRole + 1 + i: 'cl_'+p for (i, p) in enumerate(props)}
 
@@ -46,10 +46,14 @@ class ChatLogModel(QAbstractListModel):
     def roleNames(self):
         return self._roles
 
-    @QtCore.pyqtSlot(str, str)
-    def say(self, name, txt, tijd='13:37'):
+    @QtCore.pyqtSlot(str)
+    def say(self, txt):
         """ Main function to add things to the log """
-        print('got', txt)
+        name = "Dog 2"
+        tijd='13:37'
+        self.addMsg(tijd, name, txt)
+
+    def addMsg(self, tijd, name, txt):
         p = QModelIndex()
         self.beginInsertRows(p, len(self.log), len(self.log))
         self.log.append({'msg': txt, 'name': name, 'time':tijd})
@@ -60,20 +64,14 @@ class ChatWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.log = ChatLogModel()
-        self.qw = QtQuick.QQuickView()
+        self.qw = QQuickView()
         ctx = self.qw.rootContext()
         ctx.setContextProperty('chatlog', self.log)
         self.qw.setSource(QUrl('chat.qml'))
+        self.qw.setResizeMode(QQuickView.SizeRootObjectToView)
         w = self.createWindowContainer(self.qw)
         v = QVBoxLayout(self)
         v.addWidget(w)
-
-    def doSend(self):
-        txt = self.messageEdit.text()
-        self.messageEdit.clear()
-        assert type(txt) is str
-        print(txt)
-        # TODO: transmit text :)
 
 
 if __name__ == '__main__':
