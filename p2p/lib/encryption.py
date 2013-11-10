@@ -30,10 +30,22 @@ import json
 import seccure # py-seccure
 
 class KeyPair:
+    """KeyPair holds a public/private keypair, and can also generate new keypairs easily."""
+
     __slots__ = [ "private_key", "public_key" ] 
 
     def __init__(self, _private_key=None, _public_key=None):
-        """Generates a new keypair. This object can be serialized to store the pair generated."""
+        """Generates a new keypair. This object can be serialized to store the pair generated.
+        
+           To generate a NEW key, set both parameters to None (simply invoke the constructor
+           w/o arguments). To load/use an existing pair pass them as parameter. You can not
+           use this object to store ONLY a private or public key.
+
+           You may read out the 'private_key' and 'public_key' properties directly.
+
+           @param _private_key An existing private key (or None).
+           @param _public_key An existing public key (or None).
+        """
 
         assert (_private_key is None and _public_key is None) or (_private_key is not None and _public_key is not None)
 
@@ -49,45 +61,102 @@ class KeyPair:
         
 class Encryption:
     """Provides secure elliptic curve encryption.
-       This is a convenience wrapper around py-seccure, which plays nice with our internal infra-structure.
-       Keys (where needed) are expected to be passed as byte strings.
+
+       This is a convenience wrapper around py-seccure, which plays nice with our
+       internal infra-structure. Though this object can be instantiated and passed
+       around. Apart from logging, it is essentially stateless and could be regarded
+       as a singleton. Though, For future compatibility it is recommended to instantiate 
+       and pass around Encryption objects like any other object.
+
+       NOTE: Keys (where needed) are expected to be passed as byte strings.
     """
 
-    # WB: Why use slots?
+    # WB: Why use slots? AT: They are useful in cases where you want the class to
+    # have no other members than those specified in slots. This takes up fewer
+    # resources (one less dict) and eliminates run-time errors due to typos.
+    # Though, it's probably useful only for objects that have (more or less)
+    # crystallized in terms of their interface.
+    #
+
     __slots__ = [ "logger", "curve", "mac", "public_key" ]
 
     def __init__(self):
+        """Initializes a new Encryption object."""
+
         self.logger = logging.getLogger("jodawg.encryption")
         self.curve = "secp521r1/nistp521"
         self.mac = 10 # FIXME: for some reason mac's different from 10 bytes do not work (at all), find out why, and find out if we need to do something about this - AT.
                 
     def encrypt(self, message, public_key):
+        """Encrypts the given message with the provided public key.
+
+           @param message The message to encrypt.
+           @param public_key The public key to use.
+           @return An encrypted version of @message.
+        """
         cipher = seccure.encrypt(message.encode("utf-8"), public_key, mac_bytes=self.mac)
         self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + public_key.decode("utf-8") + "'")
         return cipher
 
     def encrypt_compress_json(self, dictionary, public_key):
-        # Convenience method to jsonify a dictionary, encrypt it and compress it with zlib in one go.
+        """Encrypts and compresses the given dictionary.
+           This is a convenience function which automatically builds a json representation of
+           the dictionary provided, compresses it, and then encrypts the compressed representation.
+
+           @param dictionary The Python dictionary to encrypt/compress.
+           @param public_key The public key to use.
+        """
         return self.encrypt(zlib.compress(json.dumps(dictionary, sort_keys=True), 9), public_key)
 
     def decrypt(self, cipher, private_key):
+        """Decrypts a message with the provide private key.
+        
+           @param cipher The encrypted message.
+           @param private_key The key to use for decryption.
+           @return The decrypted message.
+        """
+        # TODO: This should probably raise some type of exception when decryption fails ...
         message = seccure.decrypt(cipher, private_key) # decrypt
         self.logger.debug("Decrypted " + str(len(message)) + " bytes")
         return message.decode("utf-8")
 
     def decrypt_decompress_json(self, cipher, private_key):
+        """Decrypts and decompresses a message. 
+           See encrypt_compress_json() for details.
+
+           @param cipher The message to decrypt.
+           @param private_key The private key to use for decryption.
+           @return A Python dictionary.
+        """
         # Convenience method
         return json.loads(zlib.decompress(self.decrypt(cipher, private_key)))
 
     def sign(self, message, private_key):
+        """Signs a message with a private_key.
+
+           @param message The message to sign.
+           @param private_key The private key to use for signing.
+           @return A signature which can be verified with the public key
+                   that pairs with @private_key.
+        """
         signature = seccure.sign(message, private_key) # sign
         self.logger.debug("Signed " + str(len(message)) + " bytes with private key")
         return signature
 
     def verify(self, message, signature, public_key):
+        """Verifies a signature.
+           
+           @param message The message that was signed.
+           @param signature The signature.
+           @param public_key The key to use to verify the signature.
+        """
+
         authentic = seccure.verify(message, signature, public_key)
         self.logger.debug("Verified " + str(len(message)) + " bytes against key '" + public_key.decode("utf-8") + "', authentic = " + str(authentic))
         return authentic
 
 # TODO: Add some decent unit tests here ...
 # WB: Check testencryption.py
+# AT: Cool :) Let's extend that with some tests and perhaps build a UnitTest suite around this.
+#     also for other (future) components.
+#

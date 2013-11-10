@@ -27,9 +27,18 @@ from lib.configuration import Configuration
 from lib.encryption import Encryption
 
 class Shell(threading.Thread):
+    """Presents a simple shell for testing / interaction with the
+       jodawg P2P network. This runs in its own thread."""
+
     __slots__ = [ "configuration", "node", "encryption" ]
 
     def __init__(self, _configuration, _node):
+        """Creates a new shell.
+        
+           @param _configuration The global Configuration object to use.
+           @param _node The Node to use for communication with the network.
+        """
+
         threading.Thread.__init__(self)
 
         self.configuration = _configuration
@@ -37,6 +46,8 @@ class Shell(threading.Thread):
         #self.encryption = Encryption()
 
     def command_help(self):
+        """Lists all commands available."""
+
         print('Available commands:')
         print('join - join the network with this machine')
         print('leave - leave the network with this machine [TODO]')
@@ -54,6 +65,9 @@ class Shell(threading.Thread):
         print("leave completed")
 
     def run(self):
+        """Runs the interactive Shell.
+           When the user exits the shell the thread terminates."""
+
         print('Jodawg (%s - %s - %s) [READY]' % (JODAWG_VERSION, JODAWG_VERSION_NAME, JODAWG_VERSION_STATUS))
         print('Your identity is %s' % (self.configuration.get_user_identifier()))
         print('Type "help" for more information')
@@ -66,13 +80,15 @@ class Shell(threading.Thread):
 
             command = s.strip().lower()
 
-            if command == 'exit':
+            if command in ['x', 'exit', 'q', 'quit']: # Be flexible
                 break
-            if command == 'join':
+            elif command in ['j', 'join']:
                 self.command_join()
-            if command == 'leave':
+            elif command in ['l', 'leave']:
                 self.command_leave()
-            elif command == 'help' or command == '?':
+            elif command in [ 'h', 'help', '?' ]:
                 self.command_help()
+            else:
+                print("Command not recognized. Type 'help' for a list of available commands")
 
         print("Exiting")

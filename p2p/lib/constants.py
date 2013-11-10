@@ -20,6 +20,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Application Version
 JODAWG_VERSION='0.1'
+
+# Application Status
 JODAWG_VERSION_STATUS='pre-alpha'
+
+# Application Version Code Name
 JODAWG_VERSION_NAME='Yorkshire Terrier'
