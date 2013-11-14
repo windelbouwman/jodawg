@@ -1,2 +1,6 @@
 seccure
 
+on Ubuntu "apt-get install ubuntu-sdk" seems to install *most* of the GUI dependencies but
+not all. Need to investigate that further (besides - should not be necessary for non-dev installations) - AT.
+
+
