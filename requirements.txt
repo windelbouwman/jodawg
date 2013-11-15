@@ -1,2 +1,11 @@
+# This file is used by travis-CI to install the required packages.
+# You can also run this file with:
+#
+# $ pip install -r requirements.txt
+
 seccure
+
+# on Ubuntu "apt-get install ubuntu-sdk" seems to install *most* of the GUI dependencies but
+# not all. Need to investigate that further (besides - should not be necessary for non-dev installations) - AT.
+
 

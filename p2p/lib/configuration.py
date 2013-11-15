@@ -47,6 +47,13 @@ class Configuration(object):
     __slots__ = [ "CONFIG_FILE", "config", "logger" ]
 
     def __init__(self, location=None):
+        """Initializes this configuration.
+        
+           @param location The configuration file location. If None is provided, this
+                           is derived from the user's home directory, and defaults to
+                           ~/.jodawg.cfg
+        """
+
         self.logger = logging.getLogger("jodawg.config")
 
         if location is None:
@@ -67,6 +74,8 @@ class Configuration(object):
             # os.chmod(self.CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR) # TODO: Correctly, set file permissions
 
     def _flush(self):
+        """Writes the configuration to the disk."""
+
         self.logger.debug("Flushing configuration file to disk")
         self.config.write(open(self.CONFIG_FILE, "w"))
 
@@ -77,6 +86,10 @@ class Configuration(object):
         return getpass.getuser() # Should be the whole name including spacing
 
     def get_user_identifier(self):
+        """Retrieves this user's unique identifier. If none exists, one is generated.
+
+           @return Unique identifier (a string).
+        """
         value = self.config.get("user", "identifier", fallback=None)
         if value is None:
             value = str(random.randint(1000, 9999)) + "-" + str(random.randint(100, 999)) + "-" + str(random.randint(10, 99))
@@ -86,6 +99,12 @@ class Configuration(object):
         return value
 
     def get_user_keypair(self):
+        """Retrieves the user's public/private keypair.
+           If none exists, one is generated.
+
+           @return A KeyPair object.
+        """
+
         value = self.config.get("user", "private_key", fallback=None)
         if value is None:
             keypair = KeyPair() # generate new
@@ -123,6 +142,9 @@ class Configuration(object):
 
     def add_known_node(self, node_address, node_public_key):
         self.config["known_nodes"][node_address] = base64.b64encode(node_public_key).decode("utf-8")
+        self._flush()
 
     def remove_known_node(self, node_address):
         self.config.remove_option("known_nodes", node_address)
+        self._flush()
+
