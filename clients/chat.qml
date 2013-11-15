@@ -38,6 +38,7 @@ Rectangle {
 
   ColumnLayout {
   anchors.fill: parent
+  spacing: 10
   ListView {
     id: chatLogView
     Layout.fillHeight: true

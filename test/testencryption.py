@@ -1,8 +1,10 @@
-
+import sys
+import os
+import unittest
+sys.path.insert(0, os.path.join('..', 'p2p'))
 
 from lib.encryption import Encryption, KeyPair
 
-import unittest
 
 class EncryptionTestCase(unittest.TestCase):
     def testEncrypt(self):
