@@ -24,6 +24,7 @@ import zlib
 import json
 import zmq
 import logging
+import datetime
 
 class OverlayUser:
     """A user in overlay context is really just an identifier, public key
@@ -48,11 +49,15 @@ class OverlayNode:
     OVERLAY_NODE_STATUS_DANGLING = 2 # Indicated wants to leave, but can't verify signature
     OVERLAY_NODE_STATUS_OFFLINE = 3
 
-    def __init__(self, _address, _public_key):
+    def __init__(self, _address, _public_key, _joined=None):
         self.address = _address
         self.public_key = _public_key
+        if _joined is None:
+            self.joined = datetime.utcnow()
+        else:
+            self.joined = _joined
         self.status = self.OVERLAY_NODE_STATUS_UNKNOWN
-
+        
 class OverlayStore:
 
     def __init__(self):
@@ -79,8 +84,9 @@ class OverlayStore:
         else:
             return None
 
-    def get_nodes(self):
-        for node in self.nodes.itervalues():
+    def get_nodes(self, n=100):
+        # This returns a list of 100 nodes which are ON-LINE the longest.
+        for node in sorted(filter(lambda x: x.status == self.OVERLAY_STATUS_ONLINE, self.nodes.itervalues()), key=lambda x: x.joined)[:n]:
             return node
 
 class OverlayService:
@@ -91,6 +97,7 @@ class OverlayService:
         self.encryption = _encryption
         self.store = OverlayStore()
         self.neighbours = []
+        self.context = zmq.Context()
 
     def _handle_node_join(self, message):
 
@@ -100,24 +107,28 @@ class OverlayService:
             return json.dumps(m, sort_keys=True) # UNENCRYPTED! (don't know other node's pkey yet!)
 
         # Verify signature
-        if not self.encryption.verify(message["node_public_key"], message["signature"], message["node_public_key"]):
+        if not self.encryption.verify(Key(message["node_public_key"]).raw_key, message["signature"], Key(message["node_public_key"]).raw_key):
             m = { "response" : "node_join_denied", "reason" : "invalid signature!" }
-            return self.encryption.encrypt_compress_json(m, message["node_public_key"])
+            return self.encryption.encrypt_compress_json(m, Key(message["node_public_key"]).raw_key)
             
-        # Build response + send
+        # Build response + send.
+        # Response includes at most 100 known nodes.
         m = { "response" : "node_join_approved" }
         for no in self.overlay.get_nodes():
-            m[n.address] = (n.public_key, n.status)
+            m[n.address] = (n.public_key.b64_key, n.status)
 
         # Register that we've seen this peer for bootstrapping purposes later on
-        self.configuration_add_known_node(message["node_address"], message["node_public_key"])
+        self.configuration_add_known_node(message["node_address"], Key(message["node_public_key"]))
 
         # Register node in the overlay (as active)
-        node = OverlayNode(node_address, node_public_key)
+        # TODO: Ideally, we would also include a signature, so that
+        # others can verify that the addition to the "overlaystore" is
+        # a genuine one ...
+        node = OverlayNode(node_address, Key(node_public_key))
         node.status = OverlayNode.OVERLAY_NODE_STATUS_ONLINE
         self.overlay.update_node(node)
 
-        return self.encryption.encrypt_compress_json(m, message["node_public_key"])
+        return self.encryption.encrypt_compress_json(m, Key(message["node_public_key"]).raw_key)
 
     def _handle_node_leave(self, message):
 
@@ -131,20 +142,20 @@ class OverlayService:
         # Is the node joined?
         if node is None or node.status == OVERLAY_NODE_STATUS_OFFLINE:
             m = { "response" : "node_leave_denied", "reason" : "Node is not part of the network or off-line" }
-            return self.encryption.encrypt_compress_json(m, node.public_key)
+            return self.encryption.encrypt_compress_json(m, node.raw_public_key)
 
         # Verify signature
         if not self.encryption.verify(message["node_address"], message["signature"], message["node_address"]):
             m = { "response" : "node_leave_denied", "reason" : "invalid signature!" }
             node.status = OVERLAY_NODE_STATUS_DANGLING
-            return self.encryption.encrypt_compress_json(m, node.public_key)
+            return self.encryption.encrypt_compress_json(m, node.raw_public_key)
         
         m = { "response" : "node_leave_approved" }
-        return self.encryption.encrypt_compress_json(m, node.public_key)
+        return self.encryption.encrypt_compress_json(m, node.raw_public_key)
 
     def handle_message(self, message):
         try:
-            m = self.encryption.decrypt_decompress_json(message, self.configuration.get_node_keypair().private_key)
+            m = self.encryption.decrypt_decompress_json(message, self.configuration.get_node_keypair().raw_private_key)
         except:
             return json.dumps({ "response" : "protocol_error", "reason" : "format_or_encryption_error" }, sort_keys=True) # UNENCRYPTED! (don't know other node's pkey yet!)
 
@@ -167,24 +178,25 @@ class OverlayService:
         bootstrap_peer_addresses = self.configuration.get_known_nodes()
         if len(bootstrap_peer_addresses) == 0:
             self.logger.debug("No known bootstrap peers, assuming disjunct operation")
+            self.configuration.get_node_keypair() # but DO generate a keypair for interactions with new peers ...
             return True
 
         for (bootstrap_node_address, bootstrap_node_public_key) in bootstrap_peer_addresses:
             self.logger.debug("Trying %s for bootstrap" % (bootstrap_node_address))
 
             socket = self.context.socket(zmq.REQ)
-            sock.connect(bootstrap_node_address)
+            socket.connect(bootstrap_node_address)
 
             node_address = self.configuration.get_node_address()
-            node_public_key = self.configuration.get_node_keypair().public_key
-            signature = self.encryption.sign(node_public_key, self.configuration.get_node_keypair().private_key)
+            node_keypair = self.configuration.get_node_keypair()
+            signature = self.encryption.sign(node_keypair.raw_public_key, node_keypair.raw_private_key)
 
-            m = { "request" : "node_join", "node_address" : node_address, "node_public_key" : node_public_key, "signature" : signature }
-            sock.send(self.encryption.encrypt_compress_json(m, bootstrap_node_public_key))
+            m = { "request" : "node_join", "node_address" : node_address, "node_public_key" : node_keypair.b64_public_key, "signature" : signature }
+            socket.send(self.encryption.encrypt_compress_json(m, bootstrap_node_public_key.raw_key))
 
-            response = sock.recv()
+            response = socket.recv()
             try:
-                r = self.encryption.decrypt_decompress_json(response, self.configuration.get_node_keypair().private_key)
+                r = self.encryption.decrypt_decompress_json(response, node_keypair.raw_private_key)
             except:
                 try:
                     # Assume the response is not encrypted. This is ALWAYS an error
@@ -211,7 +223,6 @@ class OverlayService:
             # TODO: Perhaps update the list with bootstrap peers here as well ..
                 
             return True
-
 
         self.logger.error("Could not bootstrap into the network!")
         return False

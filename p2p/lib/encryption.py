@@ -25,14 +25,50 @@ import random
 import string
 import zlib
 import json
-
+import base64
 
 import seccure # py-seccure
 
-class KeyPair:
-    """KeyPair holds a public/private keypair, and can also generate new keypairs easily."""
+class Key:
+    __slots__ = [ "_key" ]
 
-    __slots__ = [ "private_key", "public_key" ] 
+    def __init__(self, key, raw=False):
+        """Stores a private or public key.
+        
+           @param key The key to store.
+           @param raw If true the key is assumed to be in unencoded bytestring format, if False (default)
+                      it is assumed that it's a base64 encoded version instead.
+        """
+        if raw:
+            self._key = key
+        else:
+            self.b64_key = key
+
+    @property
+    def b64_key(self):
+        return base64.b64encode(self._key)
+
+    @b64_key.setter
+    def b64_key(self, key):
+        self._key = base64.b64decode(key)
+
+    @property
+    def raw_key(self):
+        return self._key
+
+    @raw_key.setter
+    def raw_key(self, key):
+        self._key = key
+
+class KeyPair:
+    """KeyPair holds a public/private keypair as byte strings, and can also generate new keypairs easily.
+
+       Internally keys are stored as byte strings. However, they can also be get/set using base64 encoding.
+       (reason for this is that keys can contain weird characters which can clash with wrapping them in text-based
+        carrying format, base64 handles that. See the Key class for details).
+    """
+
+    __slots__ = [ "_private_key", "_public_key" ] 
 
     def __init__(self, _private_key=None, _public_key=None):
         """Generates a new keypair. This object can be serialized to store the pair generated.
@@ -43,8 +79,8 @@ class KeyPair:
 
            You may read out the 'private_key' and 'public_key' properties directly.
 
-           @param _private_key An existing private key (or None).
-           @param _public_key An existing public key (or None).
+           @param _private_key An existing private key (or None). Should be in base64 format.
+           @param _public_key An existing public key (or None). Should be in base64 format.
         """
 
         assert (_private_key is None and _public_key is None) or (_private_key is not None and _public_key is not None)
@@ -53,12 +89,27 @@ class KeyPair:
             # Although the private key could be (a lot) shorter, I am sticking to a
             # private key with the byte length the same as the bit length of the curve for now.
             # This won't be easy to guess ...
-            self.private_key = ''.join(random.choice(string.digits + string.ascii_letters + string.punctuation) for x in range(521)).encode("utf-8")
-            self.public_key = str(seccure.passphrase_to_pubkey(self.private_key)).encode("utf-8")
+            self._private_key = Key(''.join(random.choice(string.digits + string.ascii_letters + string.punctuation) for x in range(521)).encode("utf-8"), True)
+            self._public_key = Key(str(seccure.passphrase_to_pubkey(self.private_key)).encode("utf-8"), True)
         else:
-            self.private_key = _private_key
-            self.public_key = _public_key
+            self._private_key = Key(_private_key)
+            self._public_key = Key(_public_key)
         
+    @property
+    def b64_public_key(self):
+        return self._public_key.b64_key
+    @property
+    def b64_private_key(self):
+        return self._private_key.b64_key
+
+    @property
+    def raw_public_key(self):
+        return self._public_key.raw_key
+    @property
+    def raw_private_key(self):
+        return self._private_key.raw_key
+
+
 class Encryption:
     """Provides secure elliptic curve encryption.
 

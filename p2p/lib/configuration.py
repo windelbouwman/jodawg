@@ -27,9 +27,8 @@ import logging
 import configparser
 import getpass
 import random
-import base64
 
-from lib.encryption import KeyPair
+from lib.encryption import Key, KeyPair
 
 # NOTE - AT:
 # Ported from my own code, this object is intended to hold onto configuration settings
@@ -61,7 +60,7 @@ class Configuration(object):
         else:
             self.CONFIG_FILE = location
 
-        self.config = configparser.ConfigParser()
+        self.config = configparser.ConfigParser(delimiters=('='))
         if os.path.isfile(self.CONFIG_FILE):
             self.logger.debug("Using existing configuration file " + self.CONFIG_FILE)
             self.config.read(self.CONFIG_FILE)
@@ -108,24 +107,24 @@ class Configuration(object):
         value = self.config.get("user", "private_key", fallback=None)
         if value is None:
             keypair = KeyPair() # generate new
-            self.config["user"]["private_key"] = base64.b64encode(keypair.private_key).decode("utf-8")
-            self.config["user"]["public_key"] = base64.b64encode(keypair.public_key).decode("utf-8")
+            self.config["user"]["private_key"] = keypair.b64_private_key
+            self.config["user"]["public_key"] = keypair.b64_public_key
             self._flush()
             self.logger.info("No user keypair stored, generated new pair")
         else:
-            keypair = KeyPair(base64.b64decode(self.config.get("user", "private_key").encode("utf-8")), base64.b64decode(self.config.get("user", "public_key").encode("utf-8")))
+            keypair = KeyPair(self.config.get("user", "private_key"), self.config.get("user", "public_key"))
         return keypair
 
     def get_node_keypair(self):
         value = self.config.get("node", "private_key", fallback=None)
         if value is None:
             keypair = KeyPair() # generate new
-            self.config["node"]["private_key"] = base64.b64encode(keypair.private_key).decode("utf-8")
-            self.config["node"]["public_key"] = base64.b64encode(keypair.public_key).decode("utf-8")
+            self.config["node"]["private_key"] = keypair.b64_private_key
+            self.config["node"]["public_key"] = keypair.b64_public_key
             self._flush()
             self.logger.info("No node keypair stored, generated new pair")
         else:
-            keypair = KeyPair(base64.b64decode(self.config.get("node", "private_key").encode("utf-8")), base64.b64decode(self.config.get("node", "public_key").encode("utf-8")))
+            keypair = KeyPair(self.config.get("node", "private_key"), self.config.get("node", "public_key"))
         return keypair
 
     def get_node_address(self):
@@ -133,7 +132,7 @@ class Configuration(object):
 
     def get_known_nodes(self):
         try:
-            return [ (node_address, base64.b64decode(node_public_key.encode("utf-8"))) for (node_address, node_public_key) in self.config.items("known_nodes") ]
+            return [ (node_address, Key(node_public_key)) for (node_address, node_public_key) in self.config.items("known_nodes") ]
         except:
             return []
 
@@ -141,7 +140,7 @@ class Configuration(object):
         return self.config.has_section("known_nodes", node_address)
 
     def add_known_node(self, node_address, node_public_key):
-        self.config["known_nodes"][node_address] = base64.b64encode(node_public_key).decode("utf-8")
+        self.config["known_nodes"][node_address] = node_public_key.b64_key
         self._flush()
 
     def remove_known_node(self, node_address):

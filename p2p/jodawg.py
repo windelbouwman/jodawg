@@ -39,6 +39,7 @@ from lib.constants import *
 
 parser = argparse.ArgumentParser(description='Jodawg (%s - %s - %s)' % (JODAWG_VERSION, JODAWG_VERSION_NAME, JODAWG_VERSION_STATUS))
 parser.add_argument("-d", "--debug", action="store_true", help="Enables debugging messages.")
+parser.add_argument("-j", "--auto-join", action="store_true", help="Automatically joins the network upon start.")
 parser.add_argument("-c", "--configuration-file", type=str, help="Location of configuration file (defaults to ~/.jodawg.cfg)")
 parser.set_defaults(debug=True, configuration_file=None) # TODO: Set "debug=false" later on.
 args = parser.parse_args() 
@@ -73,7 +74,7 @@ node.start()
 
 # START SHELL (also in its own thread)
 logger.debug("Starting Shell")
-shell = Shell(configuration, node)
+shell = Shell(configuration, node, args.auto_join)
 shell.start()
 
 shell.join()

@@ -30,9 +30,9 @@ class Shell(threading.Thread):
     """Presents a simple shell for testing / interaction with the
        jodawg P2P network. This runs in its own thread."""
 
-    __slots__ = [ "configuration", "node", "encryption" ]
+    __slots__ = [ "configuration", "node", "encryption", "auto_join" ]
 
-    def __init__(self, _configuration, _node):
+    def __init__(self, _configuration, _node, _auto_join):
         """Creates a new shell.
         
            @param _configuration The global Configuration object to use.
@@ -43,6 +43,7 @@ class Shell(threading.Thread):
 
         self.configuration = _configuration
         self.node = _node
+        self.auto_join = _auto_join
         #self.encryption = Encryption()
 
     def command_help(self):
@@ -71,6 +72,10 @@ class Shell(threading.Thread):
         print('Jodawg (%s - %s - %s) [READY]' % (JODAWG_VERSION, JODAWG_VERSION_NAME, JODAWG_VERSION_STATUS))
         print('Your identity is %s' % (self.configuration.get_user_identifier()))
         print('Type "help" for more information')
+
+        if self.auto_join:
+            print("Executing Join")
+            self.command_join()
 
         while True:
             try:
