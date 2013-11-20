@@ -46,11 +46,11 @@ class Key:
 
     @property
     def b64_key(self):
-        return base64.b64encode(self._key)
+        return base64.b64encode(self._key).decode('utf-8')
 
     @b64_key.setter
     def b64_key(self, key):
-        self._key = base64.b64decode(key)
+        self._key = base64.b64decode(key.encode('utf-8'))
 
     @property
     def raw_key(self):
@@ -90,7 +90,7 @@ class KeyPair:
             # private key with the byte length the same as the bit length of the curve for now.
             # This won't be easy to guess ...
             self._private_key = Key(''.join(random.choice(string.digits + string.ascii_letters + string.punctuation) for x in range(521)).encode("utf-8"), True)
-            self._public_key = Key(str(seccure.passphrase_to_pubkey(self.private_key)).encode("utf-8"), True)
+            self._public_key = Key(str(seccure.passphrase_to_pubkey(self.raw_private_key)).encode("utf-8"), True)
         else:
             self._private_key = Key(_private_key)
             self._public_key = Key(_public_key)
