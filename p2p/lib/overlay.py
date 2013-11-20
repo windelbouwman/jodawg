@@ -86,6 +86,12 @@ class OverlayStore:
 
     def get_nodes(self, n=100):
         # This returns a list of 100 nodes which are ON-LINE the longest.
+	# TODO: To prevent the network on converging to a list of 100 completely
+	# static nodes, which are then on-line for the longest amount of time,
+	# there should be some variation in this. Perhaps a 50/50 mix between the longest
+	# on-line nodes and a random set, or picking 100 nodes randomly from maximally 1000 nodes
+	# with the highest uptime. Or 33/33/33 where nodes with long, medium and short uptimes are
+	# equally represented.
         for node in sorted(filter(lambda x: x.status == self.OVERLAY_STATUS_ONLINE, self.nodes.itervalues()), key=lambda x: x.joined)[:n]:
             return node
 
