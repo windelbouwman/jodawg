@@ -1,0 +1,37 @@
+
+
+
+Phonebook
+---------
+The phonebook is a structure which contains for each USER ID 
+the associated NODE addresses and the status of each NODE. It
+may also contain other meta-data about a USER.
+USER_ID: (NODE_A, NODE_A_STATUS) (NODE_B, NODE_B_STATUS) ...
+
+When a user logges in, the facilitating NODE changes it's
+phonebook and propagates the change to N of the nodes with
+the highest uptime it knows. They in turn do the same thing,
+but avoid message duplication.
+
+When a new user logs in to the network, it copies the phonebook
+of the NODE that facilitated the login process.
+
+If a user can not find a USER_ID in it's own phonebook it
+contacts the n NODES with the highest uptimes and queries
+them.
+
+Stability Points
+----------------
+When a NODE joins the network it's stability is 0. Every N minutes
+the node is polled by other M other NODES, if these nodes all
+find that the NODE is reachable (and responsive) they increase
+their stability rating for the NODE.
+
+NODE's themselves only keep stability ratings on OTHER nodes,
+never on themselves.
+
+The actual stability of a NODE is the average stability rating
+of that NODE at all the NODES that have queried it.
+
+The polling interval should decrease as the stability rating
+increases.
