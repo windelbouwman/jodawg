@@ -29,12 +29,13 @@ import base64
 
 import seccure # py-seccure
 
+
 class Key:
-    __slots__ = [ "_key" ]
+    __slots__ = ["_key"]
 
     def __init__(self, key, raw=False):
         """Stores a private or public key.
-        
+
            @param key The key to store.
            @param raw If true the key is assumed to be in unencoded bytestring format, if False (default)
                       it is assumed that it's a base64 encoded version instead.
@@ -59,6 +60,7 @@ class Key:
     @raw_key.setter
     def raw_key(self, key):
         self._key = key
+
 
 class KeyPair:
     """KeyPair holds a public/private keypair as byte strings, and can also generate new keypairs easily.
@@ -94,10 +96,11 @@ class KeyPair:
         else:
             self._private_key = Key(_private_key)
             self._public_key = Key(_public_key)
-        
+
     @property
     def b64_public_key(self):
         return self._public_key.b64_key
+
     @property
     def b64_private_key(self):
         return self._private_key.b64_key
@@ -105,6 +108,7 @@ class KeyPair:
     @property
     def raw_public_key(self):
         return self._public_key.raw_key
+
     @property
     def raw_private_key(self):
         return self._private_key.raw_key
@@ -137,7 +141,7 @@ class Encryption:
         self.logger = logging.getLogger("jodawg.encryption")
         self.curve = "secp521r1/nistp521"
         self.mac = 10 # FIXME: for some reason mac's different from 10 bytes do not work (at all), find out why, and find out if we need to do something about this - AT.
-                
+
     def encrypt(self, message, public_key):
         """Encrypts the given message with the provided public key.
 
@@ -145,7 +149,7 @@ class Encryption:
            @param public_key The public key to use.
            @return An encrypted version of @message.
         """
-        cipher = seccure.encrypt(message.encode("utf-8"), public_key, mac_bytes=self.mac)
+        cipher = seccure.encrypt(message, public_key, mac_bytes=self.mac)
         self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + public_key.decode("utf-8") + "'")
         return cipher
 
@@ -157,7 +161,8 @@ class Encryption:
            @param dictionary The Python dictionary to encrypt/compress.
            @param public_key The public key to use.
         """
-        return self.encrypt(zlib.compress(json.dumps(dictionary, sort_keys=True), 9), public_key)
+        msg = json.dumps(dictionary, sort_keys=True).encode('utf-8')
+        return self.encrypt(zlib.compress(msg, 9), public_key)
 
     def decrypt(self, cipher, private_key):
         """Decrypts a message with the provide private key.
@@ -190,7 +195,8 @@ class Encryption:
            @return A signature which can be verified with the public key
                    that pairs with @private_key.
         """
-        signature = seccure.sign(message, private_key) # sign
+        # sign:
+        signature = seccure.sign(message, private_key).decode('utf-8')
         self.logger.debug("Signed " + str(len(message)) + " bytes with private key")
         return signature
 
