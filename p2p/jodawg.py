@@ -25,6 +25,7 @@
 
 import argparse
 import logging
+import sys
 
 from lib.encryption import Encryption
 from lib.configuration import Configuration
@@ -33,6 +34,8 @@ from lib.shell import Shell
 from lib.network import Node
 from lib.overlay import OverlayService
 from lib.constants import *
+
+assert sys.version_info.major == 3
 
 # ARGUMENT PARSING
 # ================

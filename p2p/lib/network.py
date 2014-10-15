@@ -63,6 +63,7 @@ import zlib
 
 import zmq
 
+
 class Node(threading.Thread):
     """A Node represents a peer in the network. A peer
        always has a (socket) address and a public_key
@@ -116,10 +117,10 @@ class Node(threading.Thread):
                 self.logger.debug("Message received")
                 message = main_socket.recv()
                 
-                for (handler_name, handler) in self.handlers.iteritems():
+                for (handler_name, handler) in self.handlers.items():
                     response = handler.handle_message(message)
                     if response is not False:
-                        main_socket.send(response)
+                        main_socket.send(response.encode('utf-8'))
                         self.logger.debug("Message handled by '%s' service" % (handler_name))
                         break
 

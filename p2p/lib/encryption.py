@@ -133,14 +133,18 @@ class Encryption:
     # crystallized in terms of their interface.
     #
 
-    __slots__ = [ "logger", "curve", "mac", "public_key" ]
+    __slots__ = ["logger", "curve", "mac", "public_key"]
 
     def __init__(self):
         """Initializes a new Encryption object."""
 
         self.logger = logging.getLogger("jodawg.encryption")
         self.curve = "secp521r1/nistp521"
-        self.mac = 10 # FIXME: for some reason mac's different from 10 bytes do not work (at all), find out why, and find out if we need to do something about this - AT.
+
+        # FIXME: for some reason mac's different from 10 bytes do not work
+        # (at all), find out why, and find out if we need to do something
+        # about this - AT.
+        self.mac = 10
 
     def encrypt(self, message, public_key):
         """Encrypts the given message with the provided public key.
@@ -149,6 +153,7 @@ class Encryption:
            @param public_key The public key to use.
            @return An encrypted version of @message.
         """
+        assert type(message) is bytes
         cipher = seccure.encrypt(message, public_key, mac_bytes=self.mac)
         self.logger.debug("Encrypted " + str(len(message)) + " bytes to '" + public_key.decode("utf-8") + "'")
         return cipher
@@ -161,6 +166,7 @@ class Encryption:
            @param dictionary The Python dictionary to encrypt/compress.
            @param public_key The public key to use.
         """
+        assert type(dictionary) is dict
         msg = json.dumps(dictionary, sort_keys=True).encode('utf-8')
         return self.encrypt(zlib.compress(msg, 9), public_key)
 
@@ -171,13 +177,14 @@ class Encryption:
            @param private_key The key to use for decryption.
            @return The decrypted message.
         """
+        assert type(cipher) is bytes
         # TODO: This should probably raise some type of exception when decryption fails ...
-        message = seccure.decrypt(cipher, private_key) # decrypt
+        message = seccure.decrypt(cipher, private_key)
         self.logger.debug("Decrypted " + str(len(message)) + " bytes")
-        return message.decode("utf-8")
+        return message
 
     def decrypt_decompress_json(self, cipher, private_key):
-        """Decrypts and decompresses a message. 
+        """Decrypts and decompresses a message.
            See encrypt_compress_json() for details.
 
            @param cipher The message to decrypt.
@@ -185,7 +192,8 @@ class Encryption:
            @return A Python dictionary.
         """
         # Convenience method
-        return json.loads(zlib.decompress(self.decrypt(cipher, private_key)))
+        raw_txt = zlib.decompress(self.decrypt(cipher, private_key))
+        return json.loads(raw_txt.decode('utf-8'))
 
     def sign(self, message, private_key):
         """Signs a message with a private_key.

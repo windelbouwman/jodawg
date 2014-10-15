@@ -20,11 +20,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import zlib
 import json
 import zmq
 import logging
 import datetime
+from lib.encryption import Key, KeyPair
+
 
 class OverlayUser:
     """A user in overlay context is really just an identifier, public key
@@ -42,6 +43,7 @@ class OverlayUser:
     def add_signature(self, signature):
         self.signatures.append(signature)
 
+
 class OverlayNode:
 
     OVERLAY_NODE_STATUS_UNKNOWN = 0
@@ -57,7 +59,8 @@ class OverlayNode:
         else:
             self.joined = _joined
         self.status = self.OVERLAY_NODE_STATUS_UNKNOWN
-        
+
+
 class OverlayStore:
 
     def __init__(self):
@@ -95,8 +98,9 @@ class OverlayStore:
         for node in sorted(filter(lambda x: x.status == self.OVERLAY_STATUS_ONLINE, self.nodes.itervalues()), key=lambda x: x.joined)[:n]:
             return node
 
+
 class OverlayService:
-    
+
     def __init__(self, _configuration, _encryption):
         self.logger = logging.getLogger("jodawg.overlay")
         self.configuration = _configuration
@@ -163,12 +167,14 @@ class OverlayService:
         try:
             m = self.encryption.decrypt_decompress_json(message, self.configuration.get_node_keypair().raw_private_key)
         except:
+            self.logger.warning('Error decoding message')
+            raise
             return json.dumps({ "response" : "protocol_error", "reason" : "format_or_encryption_error" }, sort_keys=True) # UNENCRYPTED! (don't know other node's pkey yet!)
 
-        if m[command] == "node_join":
-            return self._handle_node_join(message)
-        elif m[command] == "node_leave":
-            return self._handle_node_leave(message)
+        if m['request'] == "node_join":
+            return self._handle_node_join(m)
+        elif m['request'] == "node_leave":
+            return self._handle_node_leave(m)
 
         return False # Someone else should handle this
 
@@ -242,8 +248,3 @@ class OverlayService:
         self.logger.debug("Leaving the Network")
         return True
 
-
-
-
-
-        
